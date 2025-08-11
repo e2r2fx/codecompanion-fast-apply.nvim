@@ -5,6 +5,9 @@ vim.cmd("set rtp+=./deps/plenary.nvim")
 vim.cmd("set rtp+=./deps/nvim-treesitter")
 
 -- Setup treesitter parsers used by tests (if missing)
+vim.cmd("set rtp+=./deps/mini.nvim")
+vim.cmd("set rtp+=./deps/codecompanion.nvim")
+
 local ok, ts = pcall(require, "nvim-treesitter")
 if ok then
 	ts.setup()
@@ -23,6 +26,5 @@ end
 
 -- For headless test runs, add mini.nvim and setup mini.test
 if #vim.api.nvim_list_uis() == 0 then
-	vim.cmd("set rtp+=deps/mini.nvim")
 	require("mini.test").setup()
 end

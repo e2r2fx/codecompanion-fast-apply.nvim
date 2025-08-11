@@ -7,7 +7,7 @@ test: deps
 echo:
 	@echo "Run make test to run tests"
 
-deps: deps/plenary.nvim deps/nvim-treesitter deps/mini.nvim
+deps: deps/plenary.nvim deps/nvim-treesitter deps/mini.nvim deps/codecompanion.nvim
 	@echo Pulled deps
 
 deps/plenary.nvim:
@@ -21,3 +21,7 @@ deps/nvim-treesitter:
 deps/mini.nvim:
 	@mkdir -p deps
 	git clone --filter=blob:none https://github.com/echasnovski/mini.nvim $@
+
+deps/codecompanion.nvim:
+	@mkdir -p deps
+	git clone --filter=blob:none https://github.com/olimorris/codecompanion.nvim.git $@
