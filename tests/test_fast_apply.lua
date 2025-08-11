@@ -4,36 +4,36 @@ local new_set = MiniTest.new_set
 local child = MiniTest.new_child_neovim()
 
 local cached_responses = {
-  success_response = {
-    choices = {
-      { message = { content = [[local function subtract(a, b)
+	success_response = {
+		choices = {
+			{ message = { content = [[local function subtract(a, b)
   return a - b
 end
 
 return subtract]] } },
-    },
-  },
-  validation_response = {
-    choices = {
-      {
-        message = {
-          content = [[local function process(data)
+		},
+	},
+	validation_response = {
+		choices = {
+			{
+				message = {
+					content = [[local function process(data)
   return data .. 'processed and validated'
 end
 
 return process]],
-        },
-      },
-    },
-  },
-  error_response = { error = { message = "Invalid API key" } },
+				},
+			},
+		},
+	},
+	error_response = { error = { message = "Invalid API key" } },
 }
 
 local T = new_set({
-  hooks = {
-    pre_case = function()
-      h.child_start(child)
-      child.lua([[
+	hooks = {
+		pre_case = function()
+			h.child_start(child)
+			child.lua([[
         _G.TEST_CWD = vim.fn.tempname()
         _G.TEST_DIR = "tests/stubs/fast_apply"
         _G.TEST_DIR_ABSOLUTE = _G.TEST_CWD .. "/" .. _G.TEST_DIR
@@ -47,18 +47,18 @@ local T = new_set({
         _G.original_adapters = package.loaded["codecompanion.adapters"]
         _G.original_config = package.loaded["codecompanion.config"]
       ]])
-    end,
-    post_case = function()
-      child.lua([[ if _G.h then _G.h.teardown_chat_buffer() end ]])
-      child.stop()
-    end,
-  },
+		end,
+		post_case = function()
+			child.lua([[ if _G.h then _G.h.teardown_chat_buffer() end ]])
+			child.stop()
+		end,
+	},
 })
 
 local function mock_http_client(response_data, should_error)
-  -- Keep this simple: the child will receive a small payload that registers a mock http client
-  child.lua(
-    [[local response_data, should_error = ...
+	-- Keep this simple: the child will receive a small payload that registers a mock http client
+	child.lua(
+		[[local response_data, should_error = ...
     local response_body
     if should_error then
       response_body = vim.json.encode({ error = { message = "Invalid API key" } })
@@ -91,118 +91,118 @@ local function mock_http_client(response_data, should_error)
       package.loaded["codecompanion.http"] = { new = function() return make_new() end }
     end
   ]],
-    { response_data, should_error }
-  )
+		{ response_data, should_error }
+	)
 end
 
 -- Helper that runs a small child chunk using varargs: writes lines and executes tool call
 local function run_tool_in_child(lines, props)
-  local chunk = table.concat({
-    "local lines, props = ...",
-    "local filepath = (props and props.filepath) and props.filepath or vim.fs.joinpath(_G.TEST_DIR, _G.TEST_FILE)",
-    "local args_tbl = { filepath = filepath }",
-    "if props and props.changes then args_tbl.changes = props.changes end",
-    "if props and props.context then args_tbl.context = props.context end",
-    "if props and props.instructions then args_tbl.instructions = props.instructions end",
-    "if props and props.code_edit then args_tbl.code_edit = props.code_edit end",
-    "local args = vim.json.encode(args_tbl)",
-    "vim.uv.chdir(_G.TEST_CWD)",
-    "if lines and #lines > 0 then vim.fn.writefile(lines, _G.TEST_FILE_PATH) end",
-    'local tool = {{ ["function"] = { name = "fast_apply", arguments = args } }}',
-    "tools:execute(chat, tool)",
-    "vim.wait(1000)",
-  }, "\n")
+	local chunk = table.concat({
+		"local lines, props = ...",
+		"local filepath = (props and props.filepath) and props.filepath or vim.fs.joinpath(_G.TEST_DIR, _G.TEST_FILE)",
+		"local args_tbl = { filepath = filepath }",
+		"if props and props.changes then args_tbl.changes = props.changes end",
+		"if props and props.context then args_tbl.context = props.context end",
+		"if props and props.instructions then args_tbl.instructions = props.instructions end",
+		"if props and props.code_edit then args_tbl.code_edit = props.code_edit end",
+		"local args = vim.json.encode(args_tbl)",
+		"vim.uv.chdir(_G.TEST_CWD)",
+		"if lines and #lines > 0 then vim.fn.writefile(lines, _G.TEST_FILE_PATH) end",
+		'local tool = {{ ["function"] = { name = "fast_apply", arguments = args } }}',
+		"tools:execute(chat, tool)",
+		"vim.wait(1000)",
+	}, "\n")
 
-  child.lua(chunk, { lines, props })
+	child.lua(chunk, { lines, props })
 end
 
 T["can apply simple code changes"] = function()
-  mock_http_client(cached_responses.success_response, false)
+	mock_http_client(cached_responses.success_response, false)
 
-  local original_code = {
-    "local function add(a, b)",
-    "  return a + b",
-    "end",
-    "",
-    "return add",
-  }
-  run_tool_in_child(original_code, {
-    instructions = "Replace add with subtract",
-    code_edit = [[local function subtract(a, b)
+	local original_code = {
+		"local function add(a, b)",
+		"  return a + b",
+		"end",
+		"",
+		"return add",
+	}
+	run_tool_in_child(original_code, {
+		instructions = "Replace add with subtract",
+		code_edit = [[local function subtract(a, b)
   return a - b
 end
 
 return subtract]],
-  })
+	})
 
-  local content = child.lua_get(
-    '(function() local f=io.open(_G.TEST_FILE_PATH, "r") local c=f:read("*all") f:close() return c end)()'
-  )
-  h.expect_contains("subtract", content)
-  h.expect_contains("a - b", content)
-  h.not_expect_contains("add", content)
+	local content = child.lua_get(
+		'(function() local f=io.open(_G.TEST_FILE_PATH, "r") local c=f:read("*all") f:close() return c end)()'
+	)
+	h.expect_contains("subtract", content)
+	h.expect_contains("a - b", content)
+	h.not_expect_contains("add", content)
 end
 
 T["handles missing required parameters gracefully"] = function()
-  mock_http_client(cached_responses.success_response, false)
+	mock_http_client(cached_responses.success_response, false)
 
-  run_tool_in_child({}, { filepath = "test.lua" })
+	run_tool_in_child({}, { filepath = "test.lua" })
 
-  local output = child.lua_get("chat.messages[#chat.messages].content")
-  h.expect_contains("Missing required parameters", output)
+	local output = child.lua_get("chat.messages[#chat.messages].content")
+	h.expect_contains("Missing required parameters", output)
 end
 
 T["handles nonexistent file gracefully"] = function()
-  mock_http_client(cached_responses.success_response, false)
+	mock_http_client(cached_responses.success_response, false)
 
-  local original_code = { "print('hello')" }
-  run_tool_in_child(
-    original_code,
-    { filepath = "nonexistent_file.lua", instructions = "Update the code", code_edit = "print('hello')" }
-  )
+	local original_code = { "print('hello')" }
+	run_tool_in_child(
+		original_code,
+		{ filepath = "nonexistent_file.lua", instructions = "Update the code", code_edit = "print('hello')" }
+	)
 
-  local output = child.lua_get("chat.messages[#chat.messages].content")
-  h.expect_contains("File does not exist", output)
+	local output = child.lua_get("chat.messages[#chat.messages].content")
+	h.expect_contains("File does not exist", output)
 end
 
 T["accepts additional context parameter"] = function()
-  mock_http_client(cached_responses.validation_response, false)
+	mock_http_client(cached_responses.validation_response, false)
 
-  local original_code = {
-    "local function process(data)",
-    "  return data .. 'processed'",
-    "end",
-    "",
-    "return process",
-  }
-  run_tool_in_child(original_code, {
-    instructions = "Add validation step to the processing function",
-    code_edit = [[local function process(data)
+	local original_code = {
+		"local function process(data)",
+		"  return data .. 'processed'",
+		"end",
+		"",
+		"return process",
+	}
+	run_tool_in_child(original_code, {
+		instructions = "Add validation step to the processing function",
+		code_edit = [[local function process(data)
   -- validate
   return data .. 'processed and validated'
 end
 
 return process]],
-  })
+	})
 
-  local content = child.lua_get(
-    '(function() local f=io.open(_G.TEST_FILE_PATH, "r") local c=f:read("*all") f:close() return c end)()'
-  )
-  h.expect_contains("processed and validated", content)
+	local content = child.lua_get(
+		'(function() local f=io.open(_G.TEST_FILE_PATH, "r") local c=f:read("*all") f:close() return c end)()'
+	)
+	h.expect_contains("processed and validated", content)
 end
 
 T["handles API errors gracefully"] = function()
-  mock_http_client(cached_responses.error_response, true)
+	mock_http_client(cached_responses.error_response, true)
 
-  local original_code = { "print('hello')" }
-  run_tool_in_child(original_code, { instructions = "Update the code", code_edit = "print('hello')" })
+	local original_code = { "print('hello')" }
+	run_tool_in_child(original_code, { instructions = "Update the code", code_edit = "print('hello')" })
 
-  local output = child.lua_get("chat.messages[#chat.messages].content")
-  local ok = string.find(output, "Request error", 1, true)
-    or string.find(output, "Tool `fast_apply` not found", 1, true)
-  if not ok then
-    error("Unexpected output: " .. tostring(output))
-  end
+	local output = child.lua_get("chat.messages[#chat.messages].content")
+	local ok = string.find(output, "Request error", 1, true)
+		or string.find(output, "Tool `fast_apply` not found", 1, true)
+	if not ok then
+		error("Unexpected output: " .. tostring(output))
+	end
 end
 
 return T
