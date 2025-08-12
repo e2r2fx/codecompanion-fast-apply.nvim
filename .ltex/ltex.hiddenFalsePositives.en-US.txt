@@ -1,0 +1,3 @@
+{"rule":"UPPERCASE_SENTENCE_START","sentence":"^\\Qcodecompanion-fast-apply.nvim\\E$"}
+{"rule":"MORFOLOGIK_RULE_EN_US","sentence":"^\\QConfig: adapter, model, URL, api_key (tool-level overrides).\\E$"}
+{"rule":"COMMA_PARENTHESIS_WHITESPACE","sentence":"^\\QBehavior: formats a single message with , , , sends to the adapter, writes the merged file back, and refreshes open buffers.\\E$"}

@@ -1,41 +1,41 @@
 # codecompanion-fast-apply.nvim
 
-A CodeCompanion extension providing the `fast_apply` tool to apply code edits
-using Morph Fast Apply model.
+A tiny CodeCompanion extension that provides a `fast_apply` tool to apply
+concise code edits using a Morph-compatible Fast Apply model.
 
-Installation
-
-Using lazy.nvim:
+Installation (lazy.nvim):
 
 ```lua
 {
-  "e2r2fx/codecompanion-fast-apply.nvim",
-  dependencies = { "olimorris/codecompanion.nvim" },
-  config = function()
-    require("codecompanion").setup({
-      extensions = {
-        fast_apply = {
-          enabled = true,
-          opts = {
-            adapter = "openai_compatible",
-            model = "morph-v3-large",
-            url = "https://api.morphllm.com/v1",
-          },
+  "olimorris/codecompanion.nvim"",
+  dependencies = { "e2r2fx/codecompanion-fast-apply.nvim" },
+  opts = {
+    extensions = {
+      fast_apply = {
+        enabled = true,
+        opts = {
+          adapter = "openai_compatible",
+          model = "morph-v3-large",
+          url = "https://api.morphllm.com/v1",
+          api_key = "cmd:some command to get your api key",
         },
       },
-    })
-  end,
+    }
+  }
 }
 ```
 
-Or register at runtime:
+## Quick notes
 
-```lua
-require("codecompanion._extensions.fast_apply").setup({ adapter = "openai_compatible" })
+### Nix users
+
+This repository provides a Nix flake. To enter the development shell and run the
+test suite:
+
+```bash
+nix develop --impure --accept-flake-config --command devenv test
 ```
 
-Running tests
+### If you don't use Nix just run `make test`
 
-This repo uses a nix flake for development. Start the dev shell and run the test
-runner with Neovim's headless mode using plenary/MiniTest.
-
+License: MIT

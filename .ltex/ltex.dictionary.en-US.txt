@@ -1,0 +1,4 @@
+CodeCompanion
+nvim
+codecompanion
+lua
