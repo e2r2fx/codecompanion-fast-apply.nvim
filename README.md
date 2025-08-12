@@ -7,7 +7,12 @@ edits using [morphllm](https://morphllm.com) fast apply.
 
 ## Motivation
 
-Making code changes with any other model than Claude is a pain.
+Making code changes with any model other than Claude is a pain. The example
+below is achieved with Gemini 2.5 Flash.
+
+## Usage
+
+https://github.com/user-attachments/assets/4e376995-5256-4288-9291-00bb70d15a22
 
 ## Installation (lazy.nvim):
 
