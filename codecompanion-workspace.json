@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "name": "codecompanion-fast-apply.nvim",
+  "version": "1.0.0",
+  "system_prompt": "codecompanion-fast-apply.nvim is a small CodeCompanion extension that registers a 'fast_apply' tool to perform fast, model-driven code edits using Morph (morphllm) fast-apply semantics. It assembles a structured request containing an <instruction>, the original <code>, and an <update> (the proposed edit) and sends this to a configured adapter. The adapter and model may be overridden at the tool level. The tool then parses the model response (which should contain the merged file contents), writes the updated file atomically, and refreshes any open buffers for that file.\n\nThis repository contains three primary areas of interest: (1) the extension implementation (Lua) under lua/codecompanion/_extensions/fast_apply — the register and tool logic that resolves adapters, formats requests, disables streaming for apply-style requests, and handles I/O and callbacks; (2) a focused test suite under tests/ that starts a child Neovim, mocks the HTTP client/adapter, and validates expected behaviors (successful apply, validation/merge edits, missing-parameter handling, nonexistent file handling, and API error handling); and (3) development/CI tooling (Makefile, Nix flake, GitHub Actions) used to run tests reproducibly.\n\nPurpose for an LLM using this workspace: provide concise, actionable context so the model can accurately assist with implementation, code review, or test updates. Prioritize the 'extension' group for implementation details and use 'tests' to verify expected behaviors and mocks. Consult 'dev' and 'meta' for tooling and documentation.\n\nEditing guidelines for the LLM: prefer minimal, precise edits that preserve surrounding context. Use the project's edit convention when emitting patch-like changes: include only the changed region with surrounding lines and indicate unchanged spans with the explicit marker '// ... existing code ...'. Do not introduce secrets (API keys) into the code or workspace. When suggesting fixes or changes, explicitly mention adapter resolution, request and response formatting for Morph Apply, file read/write atomicity, and buffer refresh semantics so reviewers understand side effects. When producing code edits, start with a one-sentence, first-person summary of the change.",
+  "groups": [
+    {
+      "name": "extension",
+      "system_prompt": "Implementation context for the fast_apply extension: tool behavior, adapter resolution and overrides, formatting requests for Morph Apply (instruction, original code, update), handling of streaming/options, file I/O, buffer refresh, logging, and user confirmation prompts.",
+      "data": [
+        "lua/codecompanion/_extensions/fast_apply/init.lua",
+        "lua/codecompanion/_extensions/fast_apply/tool.lua",
+        "scripts/minimal_init.lua"
+      ]
+    },
+    {
+      "name": "tests",
+      "system_prompt": "Test-suite context: how tests start a child Neovim, mock the HTTP client/adapter, and assert behaviors for successful merges, validation edits, missing parameters, nonexistent files, and API errors. Use these files to author or update tests and helpers.",
+      "data": [
+        "tests/test_fast_apply.lua",
+        "tests/helpers.lua",
+        "tests/config.lua"
+      ]
+    },
+    {
+      "name": "dev",
+      "system_prompt": "Development and CI context: Nix flake, reproducible dev shell and test invocation, Makefile targets, and GitHub Actions workflow used to run the test suite in CI.",
+      "data": [
+        "Makefile",
+        "flake.nix",
+        "flake.lock",
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "name": "meta",
+      "system_prompt": "High-level repository metadata and documentation for contributors and users: installation, motivation, quick notes and license pointers.",
+      "data": ["README.md", ".gitignore"]
+    }
+  ],
+  "data": {
+    "README.md": {
+      "type": "file",
+      "path": "README.md",
+      "description": "User-facing README describing the fast_apply extension, installation (lazy.nvim example), motivation for using Morph Apply, and developer notes for running tests with Nix or Make."
+    },
+    ".gitignore": {
+      "type": "file",
+      "path": ".gitignore",
+      "description": "List of files and directories ignored during development (devenv profile, .envrc, deps)."
+    },
+    "Makefile": {
+      "type": "file",
+      "path": "Makefile",
+      "description": "Convenience targets for running the test suite and pulling dependency repos when not using the Nix dev shell."
+    },
+    "flake.nix": {
+      "type": "file",
+      "path": "flake.nix",
+      "description": "Nix flake that defines a reproducible development shell and test command used by CI and contributors."
+    },
+    "flake.lock": {
+      "type": "file",
+      "path": "flake.lock",
+      "description": "Lockfile for flake inputs to ensure reproducible builds and caches."
+    },
+    ".github/workflows/ci.yml": {
+      "type": "file",
+      "path": ".github/workflows/ci.yml",
+      "description": "CI workflow that builds or restores a cached Nix devshell and runs the test suite inside the reproducible environment."
+    },
+    "scripts/minimal_init.lua": {
+      "type": "file",
+      "path": "scripts/minimal_init.lua",
+      "description": "Minimal Neovim init used by test child processes to set package.path and test runtime paths."
+    },
+    "lua/codecompanion/_extensions/fast_apply/init.lua": {
+      "type": "file",
+      "path": "lua/codecompanion/_extensions/fast_apply/init.lua",
+      "description": "Extension initialization that registers the `fast_apply` tool with CodeCompanion and exposes default options (adapter, model, url). Merges user-provided overrides into the tool config."
+    },
+    "lua/codecompanion/_extensions/fast_apply/tool.lua": {
+      "type": "file",
+      "path": "lua/codecompanion/_extensions/fast_apply/tool.lua",
+      "description": "The `fast_apply` tool: validates parameters, resolves the configured adapter and model (with tool-level overrides), formats a Morph Apply request (instruction, original code, update), disables streaming, calls the HTTP client via the adapter, parses the model response, writes the merged file contents atomically, refreshes open buffers if necessary, and calls the provided callback with success or error status. Also provides user-facing prompts, logging and error handling used by the test suite."
+    },
+    "tests/test_fast_apply.lua": {
+      "type": "file",
+      "path": "tests/test_fast_apply.lua",
+      "description": "Tests exercising: successful code application, validation/merge responses, graceful handling of missing parameters and nonexistent files, and API error handling. Uses a child Neovim process and a mocked HTTP client."
+    },
+    "tests/helpers.lua": {
+      "type": "file",
+      "path": "tests/helpers.lua",
+      "description": "Helper utilities for the test harness: starting/stopping child Neovim, simple expectation helpers, and mocking minimal `codecompanion.config` and adapters for offline tests."
+    },
+    "tests/config.lua": {
+      "type": "file",
+      "path": "tests/config.lua",
+      "description": "Test-specific configuration registering a test adapter and strategies used by the tests to avoid external network calls."
+    }
+  }
+}
+
