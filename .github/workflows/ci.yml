@@ -9,25 +9,38 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - url: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz
-          - url: https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-x86_64.tar.gz
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Neovim
-        run: |
-          mkdir -p _neovim
-          curl -sL ${{ matrix.url }} | tar xzf - --strip-components=1 -C "${PWD}/_neovim"
-          mkdir -p ~/.local/share/nvim/site/pack/vendor/start
-          ln -s $(pwd) ~/.local/share/nvim/site/pack/vendor/start
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
 
-      - name: Run tests
+      - name: Configure Nix experimental features
         run: |
-          export PATH="${PWD}/_neovim/bin:${PATH}"
-          export VIM="${PWD}/_neovim/share/nvim/runtime"
-          nvim --version
-          make test
+          mkdir -p ~/.config/nix
+          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+
+      - name: Enable Cachix cache for devenv
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
+      - name: Install devenv CLI
+        run: |
+          nix profile install nixpkgs#devenv
+
+      - name: Build dev shell and run tests with devenv
+        env:
+          CI: true
+        run: |
+          export PATH="$HOME/.nix-profile/bin:$PATH"
+          # Build the dev shell and run devenv test inside it. --no-pure-eval allows devenv to detect project path.
+          nix --extra-experimental-features 'nix-command flakes' develop --no-pure-eval --command devenv test
+
+      - name: Show environment (debug)
+        if: always()
+        run: |
+          which devenv || true
+          devenv --version || true
+          nix --version || true
