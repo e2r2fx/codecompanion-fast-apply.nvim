@@ -2,3 +2,4 @@ CodeCompanion
 nvim
 codecompanion
 lua
+morphllm

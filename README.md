@@ -1,9 +1,15 @@
 # codecompanion-fast-apply.nvim
 
-A tiny CodeCompanion extension that provides a `fast_apply` tool to apply
-concise code edits using a Morph-compatible Fast Apply model.
+## Description
 
-Installation (lazy.nvim):
+A tiny CodeCompanion extension that provides a `fast_apply` tool to apply code
+edits using [morphllm](https://morphllm.com) fast apply.
+
+## Motivation
+
+Making code changes with any other model than Claude is a pain.
+
+## Installation (lazy.nvim):
 
 ```lua
 {
