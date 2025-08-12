@@ -1,7 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
-    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     devenv.url = "github:cachix/devenv";
     flake-utils.url = "github:numtide/flake-utils";
   };
@@ -13,13 +12,10 @@
 
   outputs = {self, ...} @ inputs:
     inputs.flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = import inputs.nixpkgs {inherit system;};
-      unstablePkgs = import inputs.nixpkgs-unstable {
+      pkgs = import inputs.nixpkgs {
         inherit system;
         config.allowUnfree = true;
       };
-
-      # Build Vim/Neovim plugins using pkgs.vimUtils.buildVimPlugin
       buildPlugin = attrs:
         pkgs.vimUtils.buildVimPlugin {
           pname = attrs.pname;
@@ -30,7 +26,6 @@
           doCheck = false;
         };
 
-      # Plugins referenced in Makefile (filled with nurl-obtained rev+hash)
       plenary = buildPlugin {
         pname = "plenary.nvim";
         owner = "nvim-lua";
@@ -62,9 +57,7 @@
         rev = "a61730e84f92453390a4e1250482033482c33e84";
         hash = "sha256-aux5G2W1oP726s+GQALm31JTRzl1KSMS4OSNbDEZ4M0=";
       };
-
     in {
-      # Export devenv helper packages so `nix build .#devenv-test` and `.devenv-up` work
       packages = {
         devenv-up = self.devShells.${system}.default.config.procfileScript;
         devenv-test = self.devShells.${system}.default.config.test;
@@ -78,23 +71,23 @@
             config,
             ...
           }: {
-            packages = with unstablePkgs; [
+            packages = with pkgs; [
               openssl
               gnumake
-              neovim
               git
               curl
+              neovim
               plenary
               nvim_treesitter
               mini
               codecompanion
             ];
 
-            # Use devenv's enterTest so `devenv test` runs the headless nvim tests
             enterTest = ''
-              # Run the existing test invocation (same as `make test`)
               nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
             '';
+
+            #something
 
             dotenv.disableHint = true;
           })
@@ -102,3 +95,4 @@
       };
     });
 }
+

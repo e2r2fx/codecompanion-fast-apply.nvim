@@ -2,13 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
@@ -19,28 +23,106 @@ jobs:
       - name: Configure Nix experimental features
         run: |
           mkdir -p ~/.config/nix
-          echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+          # idempotent write
+          if ! grep -q '^experimental-features' ~/.config/nix/nix.conf 2>/dev/null; then
+            echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+          fi
 
       - name: Enable Cachix cache for devenv
         uses: cachix/cachix-action@v16
         with:
           name: devenv
 
-      - name: Install devenv CLI
-        run: |
-          nix profile install nixpkgs#devenv
+      # Note: devenv CLI is provided via the flake inputs; no system-wide install required
 
-      - name: Build dev shell and run tests with devenv
+      - name: Prepare cache dir
+        run: |
+          mkdir -p .nixcache
+
+      - name: Restore devshell closure cache
+        id: cache-restore
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nixcache/closure.tar.gz
+            .nixcache/store_path
+          key: devshell-closure-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          restore-keys: |
+            devshell-closure-${{ runner.os }}-
+
+      - name: Show cache-hit status
+        run: |
+          echo "cache-restore.outputs.cache-hit=${{ steps.cache-restore.outputs.cache-hit }}"
+          if [ "${{ steps.cache-restore.outputs.cache-hit }}" = 'true' ]; then
+            echo "Cache hit: will import closure.tar.gz"
+          else
+            echo "Cache miss: will build dev shell and export closure"
+          fi
+
+      - name: Import cached devshell closure if present
+        if: steps.cache-restore.outputs.cache-hit == 'true'
+        run: |
+          set -euxo pipefail
+          if [ -s .nixcache/closure.tar.gz ]; then
+            gunzip -c .nixcache/closure.tar.gz | nix-store --import
+          fi
+
+      - name: Show cached store path info (on cache hit)
+        if: steps.cache-restore.outputs.cache-hit == 'true'
+        run: |
+          set -euxo pipefail
+          if [ -s .nixcache/store_path ]; then
+            STORE_PATH=$(cat .nixcache/store_path)
+            echo "Restored store path: $STORE_PATH"
+            echo "Closure requisites for $STORE_PATH:"
+            nix-store -q --requisites "$STORE_PATH" || true
+          else
+            echo ".nixcache/store_path not present (cache may have been created before we recorded it)"
+          fi
+
+      - name: Build dev shell and export closure if cache miss
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/.nix-profile/bin:$PATH"
+          # Ensure PWD is set so devenv can detect project dir during flake evaluation
+          export PWD="$GITHUB_WORKSPACE"
+
+          # Build both the dev shell and the test package so the cached closure
+          # includes everything the test step needs (avoids downloads during test).
+          nix --extra-experimental-features 'nix-command flakes' build --impure --accept-flake-config --no-link .#devShells.x86_64-linux.default -o result-shell
+          nix --extra-experimental-features 'nix-command flakes' build --impure --accept-flake-config --no-link .#packages.x86_64-linux.devenv-test -o result-test
+
+          STORE_SHELL=$(readlink -f result-shell)
+          STORE_TEST=$(readlink -f result-test)
+
+          # Record store paths for diagnostics and future restores
+          printf '%s\n%s\n' "$STORE_SHELL" "$STORE_TEST" > .nixcache/store_path
+
+          # compute the combined requisites (closure) for both outputs
+          REQS=$(nix-store -q --requisites "$STORE_SHELL" "$STORE_TEST")
+          mkdir -p .nixcache
+          nix-store --export $REQS | gzip -c > .nixcache/closure.tar.gz
+          rm -rf result-shell result-test
+
+      - name: Run tests inside dev shell
         env:
           CI: true
         run: |
+          set -euxo pipefail
           export PATH="$HOME/.nix-profile/bin:$PATH"
-          # Build the dev shell and run devenv test inside it. --no-pure-eval allows devenv to detect project path.
-          nix --extra-experimental-features 'nix-command flakes' develop --no-pure-eval --command devenv test
+          # Make sure devenv can determine the project directory
+          export PWD="$GITHUB_WORKSPACE"
+          # Now that store has the devShell closure (via import or build), run tests
+          # Use --impure so devenv can determine the project directory when run inside
+          # the nix dev shell on CI. Accept the flake config to trust extra-substituters.
+          nix --extra-experimental-features 'nix-command flakes' develop --impure --accept-flake-config --command devenv test
 
       - name: Show environment (debug)
         if: always()
         run: |
+          set -euxo pipefail
           which devenv || true
           devenv --version || true
           nix --version || true
+
