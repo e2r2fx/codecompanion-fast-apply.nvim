@@ -76,7 +76,6 @@
               gnumake
               git
               curl
-              neovim
               plenary
               nvim_treesitter
               mini
@@ -84,10 +83,8 @@
             ];
 
             enterTest = ''
-              nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
+              ${pkgs.neovim-unwrapped}/bin/nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
             '';
-
-            #something
 
             dotenv.disableHint = true;
           })
