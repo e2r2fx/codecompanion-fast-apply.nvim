@@ -18,7 +18,58 @@
         inherit system;
         config.allowUnfree = true;
       };
+
+      # Build Vim/Neovim plugins using pkgs.vimUtils.buildVimPlugin
+      buildPlugin = attrs:
+        pkgs.vimUtils.buildVimPlugin {
+          pname = attrs.pname;
+          version = "dev";
+          src = pkgs.fetchFromGitHub {
+            inherit (attrs) owner repo rev hash;
+          };
+          doCheck = false;
+        };
+
+      # Plugins referenced in Makefile (filled with nurl-obtained rev+hash)
+      plenary = buildPlugin {
+        pname = "plenary.nvim";
+        owner = "nvim-lua";
+        repo = "plenary.nvim";
+        rev = "b9fd5226c2f76c951fc8ed5923d85e4de065e509";
+        hash = "sha256-9Un7ekhBxcnmFE1xjCCFTZ7eqIbmXvQexpnhduAg4M0=";
+      };
+
+      nvim_treesitter = buildPlugin {
+        pname = "nvim-treesitter";
+        owner = "nvim-treesitter";
+        repo = "nvim-treesitter";
+        rev = "42fc28ba918343ebfd5565147a42a26580579482";
+        hash = "sha256-CVs9FTdg3oKtRjz2YqwkMr0W5qYLGfVyxyhE3qnGYbI=";
+      };
+
+      mini = buildPlugin {
+        pname = "mini.nvim";
+        owner = "echasnovski";
+        repo = "mini.nvim";
+        rev = "4035ef97407a6661ae9ff913ff980e271a658502";
+        hash = "sha256-VBwCwwsE+wpUUuVP0f85pVvrAEjGfnVj78i0CfukSLg=";
+      };
+
+      codecompanion = buildPlugin {
+        pname = "codecompanion.nvim";
+        owner = "olimorris";
+        repo = "codecompanion.nvim";
+        rev = "a61730e84f92453390a4e1250482033482c33e84";
+        hash = "sha256-aux5G2W1oP726s+GQALm31JTRzl1KSMS4OSNbDEZ4M0=";
+      };
+
     in {
+      # Export devenv helper packages so `nix build .#devenv-test` and `.devenv-up` work
+      packages = {
+        devenv-up = self.devShells.${system}.default.config.procfileScript;
+        devenv-test = self.devShells.${system}.default.config.test;
+      };
+
       devShells.default = inputs.devenv.lib.mkShell {
         inherit inputs pkgs;
         modules = [
@@ -30,9 +81,21 @@
             packages = with unstablePkgs; [
               openssl
               gnumake
+              neovim
               git
               curl
+              plenary
+              nvim_treesitter
+              mini
+              codecompanion
             ];
+
+            # Use devenv's enterTest so `devenv test` runs the headless nvim tests
+            enterTest = ''
+              # Run the existing test invocation (same as `make test`)
+              nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
+            '';
+
             dotenv.disableHint = true;
           })
         ];
