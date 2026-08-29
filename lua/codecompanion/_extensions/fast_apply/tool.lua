@@ -6,6 +6,13 @@ local log = require("codecompanion.utils.log")
 
 local fmt = string.format
 local api = vim.api
+local function is_absolute_path(path)
+	if type(path) ~= "string" then
+		return false
+	end
+	return path:sub(1, 1) == "/" or path:match("^[A-Za-z]:[/\\]") ~= nil
+end
+
 
 ---Apply code changes using Morph Fast Apply via configured adapter
 ---@param action {filepath: string, instructions: string, code_edit: string} The arguments from the LLM's tool call
@@ -18,7 +25,11 @@ local function apply_changes_async(action, cb)
 		return
 	end
 
-	local filepath = vim.fs.joinpath(vim.fn.getcwd(), action.filepath)
+	local filepath = action.filepath
+	if not is_absolute_path(filepath) then
+		filepath = vim.fs.joinpath(vim.fn.getcwd(), filepath)
+	end
+	filepath = vim.fs.normalize(filepath)
 	local p = Path:new(filepath)
 	p.filename = p:expand()
 
@@ -233,10 +244,9 @@ return {
 		---Execute the apply code changes command
 		---@param self CodeCompanion.Tools.Tool The Fast Apply tool
 		---@param args table The arguments from the LLM's tool call
-		---@param cb function Async callback for completion
+		---@param opts table Async options
 		---@return nil
-		function(self, args, _, cb)
-			-- Tools framework may pass arguments as a JSON string; ensure we pass a table to the worker
+		function(self, args, opts)
 			local action = args
 			if type(args) == "string" then
 				local ok, decoded = pcall(vim.json.decode, args)
@@ -245,7 +255,7 @@ return {
 				end
 			end
 
-			apply_changes_async(action, cb)
+			apply_changes_async(action, opts and opts.output_cb)
 		end,
 	},
 	schema = {
@@ -321,35 +331,30 @@ Make edits to a file in a single edit_file call instead of multiple edit_file ca
 		end,
 
 		---@param self CodeCompanion.Tools.Tool
-		---@param tools CodeCompanion.Tools
-		---@param cmd table The command that was executed
-		---@param stdout table The output from the command
-		success = function(self, tools, cmd, stdout)
-			local chat = tools.chat
-			local output = vim.iter(stdout):flatten():join("\n")
+		---@param stdout table|string The output from the command
+		---@param meta { cmd: table, tools: CodeCompanion.Tools }
+		success = function(self, stdout, meta)
+			local chat = meta.tools.chat
+			local output = type(stdout) == "table" and table.concat(vim.tbl_map(tostring, stdout), "\n") or tostring(stdout or "")
 
 			chat:add_tool_output(self, output)
 		end,
 
 		---@param self CodeCompanion.Tools.Tool
-		---@param tools CodeCompanion.Tools
-		---@param cmd table
-		---@param stderr table The error output from the command
-		error = function(self, tools, cmd, stderr)
-			local chat = tools.chat
-			local errors = vim.iter(stderr):flatten():join("\n")
+		---@param stderr table|string The error output from the command
+		---@param meta { cmd: table, tools: CodeCompanion.Tools }
+		error = function(self, stderr, meta)
+			local chat = meta.tools.chat
+			local errors = type(stderr) == "table" and table.concat(vim.tbl_map(tostring, stderr), "\n") or tostring(stderr or "")
 			log:debug("[Fast Apply Tool] Error output: %s", stderr)
 
 			chat:add_tool_output(self, errors)
 		end,
 
-		---Rejection message back to the LLM
 		---@param self CodeCompanion.Tools.Tool
-		---@param tools CodeCompanion.Tools
-		---@param cmd table
-		---@return nil
-		rejected = function(self, tools, cmd)
-			local chat = tools.chat
+		---@param meta { cmd: table, tools: CodeCompanion.Tools }
+		rejected = function(self, meta)
+			local chat = meta.tools.chat
 			chat:add_tool_output(self, "**Fast Apply Tool**: The user declined to execute")
 		end,
 	},

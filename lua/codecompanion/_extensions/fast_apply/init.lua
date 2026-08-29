@@ -21,7 +21,7 @@ function Extension.setup(opts)
 	config.interactions.chat.tools = config.interactions.chat.tools or {}
 
 	config.interactions.chat.tools.fast_apply = {
-		callback = "codecompanion._extensions.fast_apply.tool",
+		path = "_extensions.fast_apply.tool",
 		description = "Apply code changes to a file using morphllm for fast code modifications",
 		opts = merged,
 	}

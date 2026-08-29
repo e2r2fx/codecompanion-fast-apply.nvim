@@ -55,7 +55,7 @@ return {
       },
       tools = {
         ["fast_apply"] = {
-          callback = "codecompanion._extensions.fast_apply.tool",
+          path = "_extensions.fast_apply.tool",
           description = "Apply code changes to a file using the morphllm for fast code modifications",
         },
         opts = {
